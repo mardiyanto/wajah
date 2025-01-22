@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.1.1
+-- version 5.2.0
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 22 Jan 2025 pada 08.29
--- Versi server: 10.1.25-MariaDB
--- Versi PHP: 7.3.31
+-- Waktu pembuatan: 22 Jan 2025 pada 08.52
+-- Versi server: 10.1.38-MariaDB
+-- Versi PHP: 7.4.33
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -47,7 +47,21 @@ CREATE TABLE `faces` (
   `name` varchar(100) NOT NULL,
   `image_path` varchar(255) NOT NULL,
   `descriptor` text NOT NULL,
+  `data_qrcode` varchar(100) NOT NULL,
+  `qr_code_path` varchar(150) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+-- --------------------------------------------------------
+
+--
+-- Struktur dari tabel `qrcodes`
+--
+
+CREATE TABLE `qrcodes` (
+  `id` int(11) NOT NULL,
+  `data` text NOT NULL,
+  `qr_code_path` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 --
@@ -67,6 +81,12 @@ ALTER TABLE `faces`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indeks untuk tabel `qrcodes`
+--
+ALTER TABLE `qrcodes`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
@@ -80,6 +100,12 @@ ALTER TABLE `absensi`
 -- AUTO_INCREMENT untuk tabel `faces`
 --
 ALTER TABLE `faces`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT untuk tabel `qrcodes`
+--
+ALTER TABLE `qrcodes`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 COMMIT;
 

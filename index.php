@@ -16,6 +16,8 @@ $result = $conn->query("SELECT * FROM faces");
         <h2>Data Rekam Wajah</h2>
         <a href="rekam.php" class="btn btn-primary mb-3">Tambah Rekam Wajah</a>
         <a href="datawajah.php" class="btn btn-primary mb-3">deteksi wajah</a>
+        <a href="qrcode.php" class="btn btn-primary mb-3">qrcode</a>
+        <a href="deteksiqrcode.php" class="btn btn-primary mb-3">deteksi qroce</a>
         <table class="table table-bordered">
             <thead>
                 <tr>
