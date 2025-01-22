@@ -33,9 +33,12 @@
             });
 
             await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri('face/weights'),
                 faceapi.nets.ssdMobilenetv1.loadFromUri('face/weights'),
                 faceapi.nets.faceLandmark68Net.loadFromUri('face/weights'),
-                faceapi.nets.faceRecognitionNet.loadFromUri('face/weights')
+                faceapi.nets.faceRecognitionNet.loadFromUri('face/weights'),
+                faceapi.nets.ageGenderNet.loadFromUri('face/weights'),
+                faceapi.nets.faceExpressionNet.loadFromUri('face/weights'),
             ]);
 
             Swal.close();
@@ -43,90 +46,87 @@
 
         // Fungsi memuat wajah dari database
         const loadFacesFromDatabase = async () => {
-    try {
-        const response = await fetch('get_faces.php'); // Backend untuk mendapatkan data wajah
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-        const data = await response.json();
-        const labeledDescriptors = [];
-
-        for (const face of data) {
-            const img = document.createElement('img');
-            img.src = face.image_path; // Gambar tidak ditampilkan
-            img.alt = face.username;
-
-            const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
-            if (!detection) {
-                console.warn(`Wajah tidak ditemukan untuk ${face.username}`);
-                continue;
-            }
-
-            labeledDescriptors.push({
-                label: `${face.id}|${face.name}|${face.username}`, // Gabungkan ID, Name, dan Username
-                descriptor: detection.descriptor
-            });
-        }
-
-        faceMatcher = new faceapi.FaceMatcher(
-            labeledDescriptors.map(item => new faceapi.LabeledFaceDescriptors(item.label, [item.descriptor])),
-            0.6
-        );
-
-    } catch (error) {
-        Swal.fire('Error', 'Gagal memuat data wajah dari database.', 'error');
-        console.error('Error loading faces:', error);
-    }
-};
-
-
-const detectFromWebcam = async () => {
-    const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-    if (detection && faceMatcher) {
-        const result = faceMatcher.findBestMatch(detection.descriptor);
-        if (result.label === 'unknown') {
-            Swal.fire('Tidak Cocok!', 'Wajah Anda tidak cocok dengan database.', 'error');
-        } else {
-            // Pisahkan label untuk mendapatkan ID, Name, dan Username
-            const [id, name, username] = result.label.split('|');
-
-            Swal.fire('Cocok!', `ID: ${id}\nName: ${name}\nUsername: ${username}`, 'success');
-
-            // Simpan data ke tabel absensi
-            const formData = new FormData();
-            formData.append('id_wajah', id); // Pastikan id_wajah adalah INT
-            formData.append('username', username);
-
             try {
-                const response = await fetch('save_absensi.php', {
-                    method: 'POST',
-                    body: formData,
-                });
+                const response = await fetch('get_faces.php');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-                const result = await response.json();
-                if (result.success) {
-                    console.log('Data absensi berhasil disimpan:', result.message);
-                } else {
-                    console.error('Gagal menyimpan data absensi:', result.message);
-                    Swal.fire('Error', 'Gagal menyimpan data absensi.', 'error');
+                const data = await response.json();
+                const labeledDescriptors = [];
+
+                for (const face of data) {
+                    const img = document.createElement('img');
+                    img.src = face.image_path;
+                    img.alt = face.username;
+
+                    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+                    if (!detection) {
+                        console.warn(`Wajah tidak ditemukan untuk ${face.username}`);
+                        continue;
+                    }
+
+                    labeledDescriptors.push({
+                        label: `${face.id}|${face.name}|${face.username}`,
+                        descriptor: detection.descriptor
+                    });
                 }
+
+                faceMatcher = new faceapi.FaceMatcher(
+                    labeledDescriptors.map(item => new faceapi.LabeledFaceDescriptors(item.label, [item.descriptor])),
+                    0.4
+                );
             } catch (error) {
-                console.error('Error saat menyimpan data absensi:', error);
-                Swal.fire('Error', 'Terjadi kesalahan saat menyimpan data absensi.', 'error');
+                Swal.fire('Error', 'Gagal memuat data wajah dari database.', 'error');
+                console.error('Error loading faces:', error);
             }
-        }
-    } else {
-        console.log('Tidak ada wajah terdeteksi.');
-    }
-    setTimeout(detectFromWebcam, 1000);
-};
+        };
 
+        // Deteksi wajah dari webcam
+        const detectFromWebcam = async () => {
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
+                .withFaceLandmarks()
+                .withFaceDescriptor();
 
+            if (detection && faceMatcher) {
+                const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                if (bestMatch.distance > 0.4) {
+                    Swal.fire('Tidak Cocok!', 'Wajah tidak sesuai dengan database.', 'error');
+                } else {
+                    const [id, name, username] = bestMatch.label.split('|');
+                    Swal.fire('Cocok!', `ID: ${id}\nName: ${name}\nUsername: ${username}`, 'success');
+
+                    const formData = new FormData();
+                    formData.append('id_wajah', id);
+                    formData.append('username', username);
+
+                    try {
+                        const response = await fetch('save_absensi.php', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        const result = await response.json();
+                        if (result.success) {
+                            Swal.fire('Berhasil', 'Data absensi berhasil disimpan.', 'success');
+                        } else if (result.message === 'Anda sudah absen hari ini.') {
+                            Swal.fire('Sudah Absen', 'Anda sudah absen hari ini.', 'info');
+                        } else {
+                            Swal.fire('Error', 'Gagal menyimpan data absensi.', 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error', 'Terjadi kesalahan saat menyimpan data absensi.', 'error');
+                    }
+                }
+            } else {
+                console.log('Tidak ada wajah terdeteksi.');
+            }
+            setTimeout(detectFromWebcam, 1000);
+        };
 
         // Mulai video stream
         const startVideoStream = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 1280, height: 720 },
+                    video: { width: 640, height: 480 },
                     audio: false
                 });
                 video.srcObject = stream;

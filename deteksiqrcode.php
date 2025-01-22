@@ -1,13 +1,14 @@
 <?php
 // Koneksi ke database
-include 'koneksi.php'; // File koneksi database
+include 'koneksi.php'; // Pastikan koneksi database telah benar
 
-// Ambil semua data dari tabel qrcodes
-$result = $conn->query("SELECT * FROM faces ORDER BY id DESC");
-$dataQR = [];
+// Ambil semua data dari tabel faces
+$result = $conn->query("SELECT id, username, name, data_qrcode FROM faces ORDER BY id DESC");
+
+$dataFaces = [];
 if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $dataQR[] = $row;
+        $dataFaces[] = $row;
     }
 }
 ?>
@@ -18,6 +19,7 @@ if ($result->num_rows > 0) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Real-Time QR Code Scanner with Sound</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         #reader {
             width: 100%;
@@ -60,17 +62,70 @@ if ($result->num_rows > 0) {
                 // Mainkan bunyi
                 beepSound.play();
 
-                // Tampilkan data dalam daftar
-                const listItem = document.createElement("li");
-                listItem.className = "list-group-item";
-                listItem.textContent = decodedText;
-                scannedDataList.appendChild(listItem);
+                // Cari data wajah dari database menggunakan decodedText
+                const faceData = <?php echo json_encode($dataFaces); ?>;
+                const scannedFace = faceData.find(face => face.data_qrcode === decodedText);
+
+                if (scannedFace) {
+                    // Tampilkan data wajah dalam daftar
+                    const listItem = document.createElement("li");
+                    listItem.className = "list-group-item";
+                    listItem.textContent = `ID: ${scannedFace.id}, Username: ${scannedFace.username}, Name: ${scannedFace.name}, QR Code Data: ${scannedFace.data_qrcode}`;
+                    scannedDataList.appendChild(listItem);
+
+                    // Kirim data ke server untuk disimpan ke absensi
+                    saveToAbsensi(scannedFace.id, scannedFace.username);
+                }
             }
         }
 
         function onScanFailure(error) {
-            // Kesalahan saat mendeteksi kode (opsional untuk log)
             console.warn(`Kode QR tidak terdeteksi: ${error}`);
+        }
+
+        function saveToAbsensi(id_wajah, username) {
+            const formData = new FormData();
+            formData.append("id_wajah", id_wajah);
+            formData.append("username", username);
+
+            fetch("proses_absen.php", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Notifikasi sukses menggunakan SweetAlert2 dengan timer untuk otomatis menghilang
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Absen Berhasil!',
+                        text: 'Data absensi berhasil disimpan.',
+                        timer: 2000, // Notifikasi otomatis menghilang dalam 2 detik
+                        showConfirmButton: false
+                    });
+                    console.log("Data berhasil disimpan:", data.message);
+                } else {
+                    // Notifikasi error menggunakan SweetAlert2 dengan timer untuk otomatis menghilang
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message, // Menampilkan pesan kesalahan, misalnya "Sudah absen hari ini."
+                        timer: 2000, // Notifikasi otomatis menghilang dalam 2 detik
+                        showConfirmButton: false
+                    });
+                    console.error("Gagal menyimpan data:", data.message);
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Kesalahan',
+                    text: 'Terjadi kesalahan saat mengirim data.',
+                    timer: 2000, // Notifikasi otomatis menghilang dalam 2 detik
+                    showConfirmButton: false
+                });
+                console.error("Kesalahan saat mengirim data:", error);
+            });
         }
 
         // Mulai pemindaian
