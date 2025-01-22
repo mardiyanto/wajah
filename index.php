@@ -15,7 +15,7 @@ $result = $conn->query("SELECT * FROM faces");
     <div class="container mt-5">
         <h2>Data Rekam Wajah</h2>
         <a href="rekam.php" class="btn btn-primary mb-3">Tambah Rekam Wajah</a>
-        <a href="datawajah1.php" class="btn btn-primary mb-3">deteksi wajah</a>
+        <a href="datawajah.php" class="btn btn-primary mb-3">deteksi wajah</a>
         <table class="table table-bordered">
             <thead>
                 <tr>
